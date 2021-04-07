@@ -9,89 +9,62 @@ provider "aws" {
 }
 
 
-#Creating a aws_VPC 
+# creating IAM-user resoure name Raman can be replaced with an possible name
+resource "aws_iam_user" "Raman" {
+  name = "Raman"
+  path = "/system/"
+  force_destroy = "true"
 
-resource "aws_vpc" "testing" { 
-  #we can create the cidr_block in any required region according to our wish 
-  cidr_block = "10.1.0.0/16"
-  #enabling dns_hostnames
-  enable_dns_hostnames = true
-  tags       = {
-               Name = "${var.vpc_Name}"
-               Env  = "Prod test"
+#specify the tags according to your name
+   tags = {
+     "Emp.No." = "0001"
+     Name  = "Raman"
+     Role = "Project Admin"
+     Authorities = "Full Admin Access"
+     "Emergency Contact No" = "1234567890"
   }
+
 }
 
-
-# creating a aws_subnet
-resource "aws_subnet" "testing_sub" {
-  #count = length(var.CIDRS)  
-  count = "${var.env == "prod" ? 3:1}"
-  vpc_id     = "${aws_vpc.testing.id}"
-  cidr_block = "${element(var.CIDRS,count.index)}"
-  #cidr_block = "10.1.1.0/24"
-  availability_zone ="${element(var.azs,count.index)}"
-  #availability_zone = "us-east-1a"
-  tags = {
-    Name = "Subnet-1"
-
-  }
+#set of credentials that allow API requests to be made as an IAM user.
+resource "aws_iam_access_key" "Raman" {
+  user = aws_iam_user.Raman.name
 }
 
-#creating a aws_internet_gateway
-resource "aws_internet_gateway" "testing_gateway" {
-  vpc_id = "${aws_vpc.testing.id}"
+#setting the user with the policy that we need to assign
 
-  tags = {
-    Name = "${var.IGW_name}"
-  }
+resource "aws_iam_policy" "Raman_ro" {
+  name        = "AdministartionAccess"
+  path        = "/system/"
+  description = "My test policy"
+
+  # Terraform's "jsonencode" function converts a
+  # Terraform expression result to valid JSON syntax.
+ policy = jsonencode({
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": "*",
+            "Resource": "*"
+        }
+    ]
+  })
 }
 
-#creating a aws_routetable
-resource "aws_route_table" "routetesting" {
-  vpc_id = "${aws_vpc.testing.id}"
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = "${aws_internet_gateway.testing_gateway.id}"
-  }
-
-  tags = {
-    Name = "${var.Main_Routing_Table}"
-  }
+#Attaching the policy that we had specified to the IAM user.
+resource "aws_iam_user_policy_attachment" "test-attach" {
+  user       = aws_iam_user.Raman.name
+  policy_arn = aws_iam_policy.Raman_ro.arn
 }
 
-#creating a aws_route_table_association
-resource "aws_route_table_association" "routetesting_ass" { 
-  count = "${length(aws_subnet.testing_sub)}"  
-  subnet_id      = "${element(aws_subnet.testing_sub.*.id,count.index)}"
-  route_table_id = "${aws_route_table.routetesting.id}"
-  #subnet_id    = "${aws_subnet.testing_sub.id}"
-}
+# resource "aws_iam_user_login_profile" "Raman" {
+#   user    = aws_iam_user.Raman.name
+#   pgp_key = "keybase:chowdary"
+#   password_length = 10
+# }
 
 
-#creaying aws_security_group
-resource "aws_security_group" "allow_tls" {
-  name        = "Allow_all"
-  description = "Allow TLS inbound traffic"
-  vpc_id      = "${aws_vpc.testing.id}"
-
-  ingress {
-    description = "TLS from VPC"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "allow_tls"
-  }
-}
+# output "password" {
+#    value = "${aws_iam_user_login_profile.Raman.encrypted_password}"
+# }
